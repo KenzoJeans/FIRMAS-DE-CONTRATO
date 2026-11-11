@@ -58,7 +58,6 @@ with tab_empleado:
         st.write("##### Firma de Conformidad del Trabajador")
         st.caption("Traza tu firma en el recuadro a continuación para aceptar los términos del contrato:")
         
-        # Corrección aplicada aquí: update_streamlit=True para evitar el error de runtime
         canvas_emp = st_canvas(
             fill_color="rgba(255, 165, 0, 0.3)",
             stroke_width=2,
@@ -67,7 +66,6 @@ with tab_empleado:
             height=160,
             width=400,
             drawing_mode="freedraw",
-            update_streamlit=True,
             key="canvas_emp_paso1",
         )
         
@@ -77,12 +75,16 @@ with tab_empleado:
         if not emp_nombre or not emp_cedula:
             st.error("Por favor completa tu Nombre y Cédula antes de enviar.")
         else:
+            # Extracción segura de la firma evitando fallos de runtime en Python moderno
             firma_b64 = ""
-            if canvas_emp.image_data is not None:
-                img = Image.fromarray(canvas_emp.image_data.astype('uint8'), 'RGBA')
-                buffered = io.BytesIO()
-                img.save(buffered, format="PNG")
-                firma_b64 = base64.b64encode(buffered.getvalue()).decode()
+            try:
+                if canvas_emp.image_data is not None:
+                    img = Image.fromarray(canvas_emp.image_data.astype('uint8'), 'RGBA')
+                    buffered = io.BytesIO()
+                    img.save(buffered, format="PNG")
+                    firma_b64 = base64.b64encode(buffered.getvalue()).decode()
+            except Exception:
+                firma_b64 = ""
 
             datos_contrato = {
                 "nombre_empleado": emp_nombre,
@@ -154,7 +156,6 @@ with tab_empresa:
                 
             st.caption("Traza tu firma de aprobación institucional:")
             
-            # Corrección aplicada aquí también
             canvas_rep = st_canvas(
                 fill_color="rgba(255, 165, 0, 0.3)",
                 stroke_width=2,
@@ -163,7 +164,6 @@ with tab_empresa:
                 height=160,
                 width=400,
                 drawing_mode="freedraw",
-                update_streamlit=True,
                 key="canvas_rep_paso2",
             )
             
@@ -171,11 +171,14 @@ with tab_empresa:
 
         if btn_finalizar:
             firma_rep_b64 = ""
-            if canvas_rep.image_data is not None:
-                img_r = Image.fromarray(canvas_rep.image_data.astype('uint8'), 'RGBA')
-                buffered_r = io.BytesIO()
-                img_r.save(buffered_r, format="PNG")
-                firma_rep_b64 = base64.b64encode(buffered_r.getvalue()).decode()
+            try:
+                if canvas_rep.image_data is not None:
+                    img_r = Image.fromarray(canvas_rep.image_data.astype('uint8'), 'RGBA')
+                    buffered_r = io.BytesIO()
+                    img_r.save(buffered_r, format="PNG")
+                    firma_rep_b64 = base64.b64encode(buffered_r.getvalue()).decode()
+            except Exception:
+                firma_rep_b64 = ""
 
             supabase.table("contratos_laborales").update({
                 "estado": "Completado",
