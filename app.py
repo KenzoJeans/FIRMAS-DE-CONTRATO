@@ -3,6 +3,7 @@ from supabase import create_client, Client
 from streamlit_drawable_canvas import st_canvas
 import base64
 from PIL import Image
+import numpy as np
 import io
 
 st.set_page_config(page_title="SGA - Flujo de Contratación Digital", layout="wide")
@@ -75,16 +76,17 @@ with tab_empleado:
         if not emp_nombre or not emp_cedula:
             st.error("Por favor completa tu Nombre y Cédula antes de enviar.")
         else:
-            # Extracción segura de la firma evitando fallos de runtime en Python moderno
             firma_b64 = ""
-            try:
-                if canvas_emp.image_data is not None:
-                    img = Image.fromarray(canvas_emp.image_data.astype('uint8'), 'RGBA')
+            if canvas_emp.image_data is not None:
+                try:
+                    # Convertir matriz de datos del canvas a imagen PNG en Base64 de forma robusta
+                    input_array = canvas_emp.image_data
+                    img = Image.fromarray(input_array.astype('uint8'), mode="RGBA")
                     buffered = io.BytesIO()
                     img.save(buffered, format="PNG")
                     firma_b64 = base64.b64encode(buffered.getvalue()).decode()
-            except Exception:
-                firma_b64 = ""
+                except Exception as e:
+                    st.error(f"Error procesando la firma: {e}")
 
             datos_contrato = {
                 "nombre_empleado": emp_nombre,
@@ -96,8 +98,11 @@ with tab_empleado:
                 "fecha_firma_empleado": "now()"
             }
             res = supabase.table("contratos_laborales").insert(datos_contrato).execute()
-            nuevo_id = res.data[0]['id']
-            st.success(f"✅ ¡Contrato #{nuevo_id} firmado con éxito por el trabajador! Ha pasado al turno de aprobación de la Empresa.")
+            if res.data:
+                nuevo_id = res.data[0]['id']
+                st.success(f"✅ ¡Contrato #{nuevo_id} firmado con éxito por el trabajador! Ha pasado al turno de aprobación de la Empresa.")
+            else:
+                st.error("Hubo un error al guardar en la base de datos.")
 
 # ==========================================
 # PESTAÑA 2: APROBACIÓN DE LA EMPRESA
@@ -119,7 +124,11 @@ with tab_empresa:
 
         st.markdown("---")
         
-        img_firma_emp_html = f'<img src="data:image/png;base64,{contrato_actual["firma_empleado_b64"]}" width="180"/>' if contrato_actual.get("firma_empleado_b64") else "<i>Firma Digital Registrada</i>"
+        # Mostrar la firma del empleado si existe en Base64
+        if contrato_actual.get("firma_empleado_b64"):
+            img_firma_emp_html = f'<img src="data:image/png;base64,{contrato_actual["firma_empleado_b64"]}" width="180" style="border:1px solid #ccc; background:#fff;"/>'
+        else:
+            img_firma_emp_html = "<i>[Firma no registrada]</i>"
         
         doc_con_firma_emp = f"""
         <div style="background-color: #ffffff; color: #111111; padding: 30px; border-radius: 8px; border: 1px solid #cccccc; font-family: 'Times New Roman', serif; line-height: 1.6;">
@@ -171,14 +180,15 @@ with tab_empresa:
 
         if btn_finalizar:
             firma_rep_b64 = ""
-            try:
-                if canvas_rep.image_data is not None:
-                    img_r = Image.fromarray(canvas_rep.image_data.astype('uint8'), 'RGBA')
+            if canvas_rep.image_data is not None:
+                try:
+                    input_array_r = canvas_rep.image_data
+                    img_r = Image.fromarray(input_array_r.astype('uint8'), mode="RGBA")
                     buffered_r = io.BytesIO()
                     img_r.save(buffered_r, format="PNG")
                     firma_rep_b64 = base64.b64encode(buffered_r.getvalue()).decode()
-            except Exception:
-                firma_rep_b64 = ""
+                except Exception as e:
+                    st.error(f"Error procesando la firma de la empresa: {e}")
 
             supabase.table("contratos_laborales").update({
                 "estado": "Completado",
