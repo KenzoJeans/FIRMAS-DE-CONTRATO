@@ -19,7 +19,6 @@ supabase: Client = init_connection()
 st.title("📄 Sistema de Contratación Digital (Workflow)")
 st.caption("Módulo de Firmas y Cadena de Aprobación Documental")
 
-# Pestañas para simular los dos roles de la cadena de firma
 tab_empleado, tab_empresa, tab_historial = st.tabs([
     "✍️ 1. Firma Empleado", 
     "🏢 2. Aprobación Empresa (GH)", 
@@ -43,7 +42,6 @@ with tab_empleado:
     st.markdown("---")
     st.markdown("#### Vista Previa del Documento Legal")
     
-    # Renderizado del contrato estilo papel / documento físico
     texto_contrato = f"""
     <div style="background-color: #ffffff; color: #111111; padding: 30px; border-radius: 8px; border: 1px solid #cccccc; font-family: 'Times New Roman', serif; line-height: 1.6;">
         <h3 style="text-align: center; margin-bottom: 20px;">CONTRATO INDIVIDUAL DE TRABAJO A TÉRMINO INDEFINIDO</h3>
@@ -60,6 +58,7 @@ with tab_empleado:
         st.write("##### Firma de Conformidad del Trabajador")
         st.caption("Traza tu firma en el recuadro a continuación para aceptar los términos del contrato:")
         
+        # Corrección aplicada aquí: update_streamlit=True para evitar el error de runtime
         canvas_emp = st_canvas(
             fill_color="rgba(255, 165, 0, 0.3)",
             stroke_width=2,
@@ -68,6 +67,7 @@ with tab_empleado:
             height=160,
             width=400,
             drawing_mode="freedraw",
+            update_streamlit=True,
             key="canvas_emp_paso1",
         )
         
@@ -77,7 +77,6 @@ with tab_empleado:
         if not emp_nombre or not emp_cedula:
             st.error("Por favor completa tu Nombre y Cédula antes de enviar.")
         else:
-            # Convertir firma a Base64
             firma_b64 = ""
             if canvas_emp.image_data is not None:
                 img = Image.fromarray(canvas_emp.image_data.astype('uint8'), 'RGBA')
@@ -90,7 +89,7 @@ with tab_empleado:
                 "cedula_empleado": emp_cedula,
                 "cargo": emp_cargo,
                 "salario": emp_salario,
-                "estado": "Pendiente_Empresa", # Salta al siguiente eslabón del workflow
+                "estado": "Pendiente_Empresa",
                 "firma_empleado_b64": firma_b64,
                 "fecha_firma_empleado": "now()"
             }
@@ -104,7 +103,6 @@ with tab_empleado:
 with tab_empresa:
     st.subheader("Paso 2: Aprobación y Firma Representante Legal (GH)")
     
-    # Consultar contratos pendientes por la firma de la empresa
     try:
         pendientes = supabase.table("contratos_laborales").select("*").eq("estado", "Pendiente_Empresa").execute().data
     except Exception as e:
@@ -119,7 +117,6 @@ with tab_empresa:
 
         st.markdown("---")
         
-        # Mostrar el documento con la firma del empleado ya incrustada
         img_firma_emp_html = f'<img src="data:image/png;base64,{contrato_actual["firma_empleado_b64"]}" width="180"/>' if contrato_actual.get("firma_empleado_b64") else "<i>Firma Digital Registrada</i>"
         
         doc_con_firma_emp = f"""
@@ -156,6 +153,8 @@ with tab_empresa:
                 rep_cedula = st.text_input("Cédula Representante", value="1018400000", key="rep_c")
                 
             st.caption("Traza tu firma de aprobación institucional:")
+            
+            # Corrección aplicada aquí también
             canvas_rep = st_canvas(
                 fill_color="rgba(255, 165, 0, 0.3)",
                 stroke_width=2,
@@ -164,6 +163,7 @@ with tab_empresa:
                 height=160,
                 width=400,
                 drawing_mode="freedraw",
+                update_streamlit=True,
                 key="canvas_rep_paso2",
             )
             
@@ -177,7 +177,6 @@ with tab_empresa:
                 img_r.save(buffered_r, format="PNG")
                 firma_rep_b64 = base64.b64encode(buffered_r.getvalue()).decode()
 
-            # Actualizar registro a COMPLETADO
             supabase.table("contratos_laborales").update({
                 "estado": "Completado",
                 "nombre_representante": rep_nombre,
